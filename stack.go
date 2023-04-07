@@ -1,91 +1,100 @@
 package errors
 
 import (
-	"fmt"
 	"io"
-	"path"
 	"runtime"
 	"strconv"
 	"strings"
 )
 
-func callers() *stack {
-	const depth = 32
-	var pcs [depth]uintptr
-	n := runtime.Callers(3, pcs[:])
-	var st stack = pcs[0:n]
-	return &st
+const maxDepth = 32
+
+func callers(skip int) Stack {
+	var pcs [maxDepth]uintptr
+	n := runtime.Callers(skip, pcs[:])
+	return pcs[0:n]
 }
 
-type stack []uintptr
+type Stack []uintptr
 
-func (s *stack) Format(st fmt.State, verb rune) {
-	switch verb {
-	case 'v':
-		switch {
-		case st.Flag('+'):
-			for _, pc := range *s {
-				f := Frame(pc)
-				fmt.Fprintf(st, "\n%+v", f)
-			}
-		}
-	}
+func (s Stack) String() string {
+	return s.StackTrace().String()
 }
 
-func (s *stack) StackTrace() StackTrace {
-	f := make([]Frame, len(*s))
-	for i := 0; i < len(f); i++ {
-		f[i] = Frame((*s)[i])
+func (s Stack) CompactString() string {
+	return s.StackTrace().CompactString()
+}
+
+func (s Stack) PrettyString() string {
+	return s.StackTrace().PrettyString()
+}
+
+func (s Stack) StackTrace() StackTrace {
+	st := make([]Frame, 0, len(s))
+	for _, p := range s {
+		st = append(st, Frame(p))
 	}
-	return f
+	return st
 }
 
 type StackTrace []Frame
 
-func (st StackTrace) Format(s fmt.State, verb rune) {
-	switch verb {
-	case 'v':
-		switch {
-		case s.Flag('+'):
-			for _, f := range st {
-				io.WriteString(s, "\n")
-				f.Format(s, verb)
-			}
-		case s.Flag('#'):
-			fmt.Fprintf(s, "%#v", []Frame(st))
-		default:
-			st.formatSlice(s, verb)
-		}
-	case 's':
-		st.formatSlice(s, verb)
-	}
+func (st StackTrace) String() string {
+	return st.CompactString()
 }
 
-func (st StackTrace) formatSlice(s fmt.State, verb rune) {
-	io.WriteString(s, "[")
+func (st StackTrace) CompactString() string {
+	sb := strings.Builder{}
+	st.compactWrite(&sb)
+	return sb.String()
+}
+
+func (st StackTrace) compactWrite(w io.Writer) {
+	_, _ = io.WriteString(w, "[")
 	for i, f := range st {
 		if i > 0 {
-			io.WriteString(s, " ")
+			_, _ = io.WriteString(w, " ")
 		}
-		f.Format(s, verb)
+		f.compactWrite(w)
 	}
-	io.WriteString(s, "]")
+	_, _ = io.WriteString(w, "]")
+}
+
+func (st StackTrace) PrettyString() string {
+	sb := strings.Builder{}
+	st.prettyWrite(&sb)
+	return sb.String()
+}
+
+func (st StackTrace) prettyWrite(w io.Writer) {
+	for i, f := range st {
+		if i > 0 {
+			_, _ = io.WriteString(w, "\n")
+		}
+		f.prettyWrite(w)
+	}
 }
 
 type Frame uintptr
 
-func (f Frame) pc() uintptr { return uintptr(f) - 1 }
-
-func (f Frame) file() string {
+func (f Frame) Func() string {
 	fn := runtime.FuncForPC(f.pc())
 	if fn == nil {
-		return "unknown"
+		return ""
+	}
+	return fn.Name()
+}
+
+func (f Frame) File() string {
+	fn := runtime.FuncForPC(f.pc())
+	if fn == nil {
+		return ""
 	}
 	file, _ := fn.FileLine(f.pc())
 	return file
 }
 
-func (f Frame) line() int {
+func (f Frame) Line() int {
 	fn := runtime.FuncForPC(f.pc())
 	if fn == nil {
 		return 0
@@ -94,47 +103,54 @@ func (f Frame) line() int {
 	return line
 }
 
-func (f Frame) name() string {
-	fn := runtime.FuncForPC(f.pc())
-	if fn == nil {
-		return "unknown"
-	}
-	return fn.Name()
+func (f Frame) String() string {
+	return f.CompactString()
 }
 
-func (f Frame) Format(s fmt.State, verb rune) {
-	switch verb {
-	case 's':
-		switch {
-		case s.Flag('+'):
-			io.WriteString(s, f.name())
-			io.WriteString(s, "\n\t")
-			io.WriteString(s, f.file())
-		default:
-			io.WriteString(s, path.Base(f.file()))
+func (f Frame) CompactString() string {
+	sb := strings.Builder{}
+	f.compactWrite(&sb)
+	return sb.String()
+}
+
+func (f Frame) compactWrite(w io.Writer) {
+	f.write(w, " ")
+}
+
+func (f Frame) PrettyString() string {
+	sb := strings.Builder{}
+	f.prettyWrite(&sb)
+	return sb.String()
+}
+
+func (f Frame) prettyWrite(w io.Writer) {
+	f.write(w, "\n\t")
+}
+
+func (f Frame) write(w io.Writer, separator string) {
+	name := f.Func()
+	if name == "" {
+		file := f.File()
+		if file == "" {
+			_, _ = io.WriteString(w, "unknown")
+			return
 		}
-	case 'd':
-		io.WriteString(s, strconv.Itoa(f.line()))
-	case 'n':
-		io.WriteString(s, funcname(f.name()))
-	case 'v':
-		f.Format(s, 's')
-		io.WriteString(s, ":")
-		f.Format(s, 'd')
+		_, _ = io.WriteString(w, file)
+		_, _ = io.WriteString(w, ":")
+		_, _ = io.WriteString(w, strconv.Itoa(f.Line()))
+		return
 	}
+	_, _ = io.WriteString(w, name)
+	file := f.File()
+	if file == "" {
+		return
+	}
+	_, _ = io.WriteString(w, separator)
+	_, _ = io.WriteString(w, file)
+	_, _ = io.WriteString(w, ":")
+	_, _ = io.WriteString(w, strconv.Itoa(f.Line()))
 }
 
-func (f Frame) MarshalText() ([]byte, error) {
-	name := f.name()
-	if name == "unknown" {
-		return []byte(name), nil
-	}
-	return []byte(fmt.Sprintf("%s %s:%d", name, f.file(), f.line())), nil
-}
-
-func funcname(name string) string {
-	i := strings.LastIndex(name, "/")
-	name = name[i+1:]
-	i = strings.Index(name, ".")
-	return name[i+1:]
+func (f Frame) pc() uintptr {
+	return uintptr(f) - 1
 }
