@@ -6,17 +6,77 @@ import (
 	"unicode/utf8"
 )
 
+type Code string
+
+type Params = map[string]any
+
+var MessageParamNotFoundHandler = func(template Template, param string, trace []string) {}
+
+type Error struct {
+	template Template
+	params   map[string]any
+	trace    []string
+}
+
+func newError(template Template, params Params) Error {
+	trace := stackTrace(3)
+	templateParams := template.messageParams()
+	for _, param := range templateParams {
+		_, found := params[param]
+		if !found {
+			MessageParamNotFoundHandler(template, param, trace)
+		}
+	}
+	return Error{
+		template: template,
+		params:   params,
+		trace:    trace,
+	}
+}
+
+func (e Error) Code() Code {
+	return e.template.Code
+}
+
+func (e Error) Message() string {
+	return e.template.Format(e.params)
+}
+
+func (e Error) Error() string {
+	return e.Message()
+}
+
+func (e Error) Trace() []string {
+	return e.trace
+}
+
 type Template struct {
 	Code    Code
 	Message string
+	Params  Params
 }
 
-func (t Template) Params() []string {
+func (t Template) Format(params Params) string {
+	return format(t.Message, t.mergeParams(params))
+}
+
+func (t Template) messageParams() []string {
 	return params(t.Message)
 }
 
-func (t Template) Format(params map[string]any) string {
-	return format(t.Message, params)
+func (t Template) mergeParams(params Params) Params {
+	return mergeParams(t.Params, params)
+}
+
+func mergeParams(params1 Params, params2 Params) Params {
+	mergedParams := make(Params, len(params1)+len(params2))
+	for paramId, param := range params1 {
+		mergedParams[paramId] = param
+	}
+	for paramId, param := range params2 {
+		mergedParams[paramId] = param
+	}
+	return mergedParams
 }
 
 func params(str string) []string {
@@ -75,7 +135,7 @@ func readId(tokens []string, startIndex int) (string, bool, int) {
 		}
 		token := tokens[index]
 		if token == closeBracket {
-			return strings.Join(tokens[startIndex:index], ""), true, index + 1
+			return strings.Join(tokens[startIndex+1:index], ""), true, index + 1
 		}
 		index++
 	}
@@ -151,4 +211,9 @@ var Canceled = Template{
 var NotImplemented = Template{
 	Code:    "NOT_IMPLEMENTED",
 	Message: "Not implemented",
+}
+
+var InternalError = Template{
+	Code:    "INTERNAL_ERROR",
+	Message: "Internal error",
 }

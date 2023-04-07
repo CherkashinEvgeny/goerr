@@ -8,39 +8,42 @@ import (
 	"strings"
 )
 
-var traceAllow string
+var basePath string
 
 func init() {
 	d, _ := os.Getwd()
 	if path.Base(d) == "bin" {
 		d = path.Dir(d)
 	}
-	traceAllow = path.Dir(d)
+	basePath = path.Dir(d)
 }
 
-func Traces(step int) []string {
-	tr := make([]string, 0, 10)
-	for i := step; true; i++ {
-		t := trace(i)
+func stackTrace(index int) []string {
+	steps := make([]string, 0, 10)
+	for {
+		t := stackTraceItem(index)
 		if t == "" {
 			break
 		}
-		tr = append(tr, t)
+		steps = append(steps, t)
+		index++
 	}
-
-	return tr
+	return steps
 }
 
-func trace(step int) (kind string) {
-	pc, filePath, line, ok := runtime.Caller(step)
-	if line == 0 || !strings.Contains(filePath, traceAllow) {
-		return
+func stackTraceItem(index int) string {
+	pc, filePath, line, ok := runtime.Caller(index)
+	if line == 0 || !strings.Contains(filePath, basePath) {
+		return ""
 	}
-	kind = strings.ReplaceAll(filePath, traceAllow, "") + ":" + strconv.Itoa(line)
-	if ok {
-		if fn := runtime.FuncForPC(pc); fn != nil {
-			kind += " " + path.Base(fn.Name())
-		}
+	item := strings.ReplaceAll(filePath, basePath, "") + ":" + strconv.Itoa(line)
+	if !ok {
+		return item
 	}
-	return
+	fn := runtime.FuncForPC(pc)
+	if fn == nil {
+		return item
+	}
+	item += " " + path.Base(fn.Name())
+	return item
 }
