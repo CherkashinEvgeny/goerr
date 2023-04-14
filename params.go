@@ -15,10 +15,35 @@ type Param struct {
 	Value any
 }
 
-func Resource(resource string) Param {
-	return Param{"Resource", resource}
+const keyId = "Id"
+
+func WithId(id string) Param {
+	return Param{keyId, id}
 }
 
-func Cause(cause string) Param {
-	return Param{"Cause", cause}
+func Id(e Error) string {
+	res, _ := e.Get(keyId).(string)
+	return res
+}
+
+const keyResource = "Resource"
+
+func WithResource(resource string) Param {
+	return Param{keyResource, resource}
+}
+
+func Resource(e Error) string {
+	res, _ := e.Get(keyResource).(string)
+	return res
+}
+
+const keyCause = "Cause"
+
+func WithCause(err error) Param {
+	return Param{keyCause, err}
+}
+
+func Cause(e Error) error {
+	err, _ := e.Get(keyCause).(error)
+	return err
 }

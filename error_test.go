@@ -11,7 +11,7 @@ func Test(t *testing.T) {
 		config.MarshalStackTrace = true
 		return config
 	})
-	e := New(NotFound, Resource("Bucket"))
+	e := New(NotFound, WithResource("Bucket"))
 	errBytes, err := json.Marshal(e)
 	if err != nil {
 		panic(err)
