@@ -15,15 +15,34 @@ type Param struct {
 	Value any
 }
 
+const keyCause = "cause"
+
+func WithCause(err error) Param {
+	return Param{keyCause, err}
+}
+
+func GetCause(e Error) (error, bool) {
+	val := e.Get(keyCause)
+	if val == nil {
+		return nil, false
+	}
+	err, ok := e.Get(keyCause).(error)
+	return err, ok
+}
+
 const keyId = "Id"
 
 func WithId(id string) Param {
 	return Param{keyId, id}
 }
 
-func Id(e Error) string {
-	res, _ := e.Get(keyId).(string)
-	return res
+func GetId(e Error) (string, bool) {
+	val := e.Get(keyId)
+	if val == nil {
+		return "", false
+	}
+	id, ok := e.Get(keyId).(string)
+	return id, ok
 }
 
 const keyResource = "Resource"
@@ -32,18 +51,56 @@ func WithResource(resource string) Param {
 	return Param{keyResource, resource}
 }
 
-func Resource(e Error) string {
-	res, _ := e.Get(keyResource).(string)
-	return res
+func GetResource(e Error) (string, bool) {
+	val := e.Get(keyResource)
+	if val == nil {
+		return "", false
+	}
+	resource, ok := e.Get(keyResource).(string)
+	return resource, ok
 }
 
-const keyCause = "Cause"
+const keyReason = "reason"
 
-func WithCause(err error) Param {
-	return Param{keyCause, err}
+func WithReason(reason string) Param {
+	return Param{keyReason, reason}
 }
 
-func Cause(e Error) error {
-	err, _ := e.Get(keyCause).(error)
-	return err
+func GetReason(e Error) (string, bool) {
+	val := e.Get(keyReason)
+	if val == nil {
+		return "", false
+	}
+	reason, ok := e.Get(keyReason).(string)
+	return reason, ok
+}
+
+const keyValidationErrors = "Errors"
+
+func WithValidationErrors(errors map[string]string) Param {
+	return Param{keyValidationErrors, errors}
+}
+
+func GetValidationErrors(e Error) (map[string]string, bool) {
+	val := e.Get(keyValidationErrors)
+	if val == nil {
+		return nil, false
+	}
+	errors, ok := e.Get(keyValidationErrors).(map[string]string)
+	return errors, ok
+}
+
+const keyPrecondition = "Precondition"
+
+func WithPrecondition(precondition string) Param {
+	return Param{keyPrecondition, precondition}
+}
+
+func GetPrecondition(e Error) (string, bool) {
+	val := e.Get(keyPrecondition)
+	if val != nil {
+		return "", false
+	}
+	precondition, ok := e.Get(keyPrecondition).(string)
+	return precondition, ok
 }
