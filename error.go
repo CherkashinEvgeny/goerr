@@ -132,10 +132,6 @@ func stackTraceToStringArray(stackTrace StackTrace) []string {
 
 var _ json.Unmarshaler = (*Error)(nil)
 
-var codeIsMissingError = errors.New("code is missing")
-
-var messageIsMissingError = errors.New("message is missing")
-
 func (e *Error) UnmarshalJSON(bytes []byte) error {
 	data := map[string]any{}
 	err := json.Unmarshal(bytes, &data)
@@ -193,9 +189,24 @@ func (e Error) MarshalXML(en *xml.Encoder, start xml.StartElement) error {
 	return en.EncodeElement(data, start)
 }
 
+func stackTraceToString(stackTrace StackTrace) string {
+	sb := strings.Builder{}
+	for index, frame := range stackTrace {
+		if index != 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString(frame.Func())
+		sb.WriteString("\n\t")
+		sb.WriteString(frame.File())
+		sb.WriteString(":")
+		sb.WriteString(strconv.Itoa(frame.Line()))
+	}
+	return sb.String()
+}
+
 var _ xml.Unmarshaler = (*Error)(nil)
 
-func (e *Error) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+func (e *Error) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 	data := map[string]any{}
 	err := d.Decode(&data)
 	if err != nil {
@@ -229,17 +240,6 @@ func (e *Error) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	return nil
 }
 
-func stackTraceToString(stackTrace StackTrace) string {
-	sb := strings.Builder{}
-	for index, frame := range stackTrace {
-		if index != 0 {
-			sb.WriteString("\n")
-		}
-		sb.WriteString(frame.Func())
-		sb.WriteString("\n\t")
-		sb.WriteString(frame.File())
-		sb.WriteString(":")
-		sb.WriteString(strconv.Itoa(frame.Line()))
-	}
-	return sb.String()
-}
+var codeIsMissingError = errors.New("code is missing")
+
+var messageIsMissingError = errors.New("message is missing")

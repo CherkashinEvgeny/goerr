@@ -4,11 +4,7 @@ import "fmt"
 
 const CodeValidationError Code = "ValidationError"
 
-func ValidationError(params ...Param) error {
-	return New(validationError, params...)
-}
-
-var validationError = Template{
+var ValidationError = Template{
 	Code: CodeValidationError,
 	Message: func(params map[string]any) string {
 		resource, found := params[keyResource]
@@ -22,11 +18,7 @@ var validationError = Template{
 
 const CodeBlockingLink Code = "BlockingLink"
 
-func BlockingLink(params ...Param) error {
-	return New(blockingLink, params...)
-}
-
-var blockingLink = Template{
+var BlockingLink = Template{
 	Code: CodeBlockingLink,
 	Message: func(params map[string]any) string {
 		return "There are links to this resource"
@@ -36,11 +28,7 @@ var blockingLink = Template{
 
 const CodeChecksumError = "ChecksumError"
 
-func ChecksumError(params ...Param) error {
-	return New(checksumError, params...)
-}
-
-var checksumError = Template{
+var ChecksumError = Template{
 	Code: CodeChecksumError,
 	Message: func(params map[string]any) string {
 		return "Checksum does not match"
@@ -50,11 +38,7 @@ var checksumError = Template{
 
 const CodeUnauthorized Code = "Unauthorized"
 
-func Unauthorized(params ...Param) error {
-	return New(unauthorized, params...)
-}
-
-var unauthorized = Template{
+var Unauthorized = Template{
 	Code: CodeUnauthorized,
 	Message: func(params map[string]any) string {
 		return fmt.Sprintf("Unauthorized")
@@ -64,11 +48,7 @@ var unauthorized = Template{
 
 const CodeForbidden Code = "Forbidden"
 
-func Forbidden(params ...Param) error {
-	return New(forbidden, params...)
-}
-
-var forbidden = Template{
+var Forbidden = Template{
 	Code: CodeForbidden,
 	Message: func(params map[string]any) string {
 		return fmt.Sprintf("Forbidden")
@@ -78,11 +58,7 @@ var forbidden = Template{
 
 const CodeNotFound Code = "NotFound"
 
-func NotFound(params ...Param) error {
-	return New(notFound, params...)
-}
-
-var notFound = Template{
+var NotFound = Template{
 	Code: CodeNotFound,
 	Message: func(params map[string]any) string {
 		resource, found := params[keyResource]
@@ -96,11 +72,7 @@ var notFound = Template{
 
 const CodeTimeout Code = "Timeout"
 
-func Timeout(params ...Param) error {
-	return New(timeout, params...)
-}
-
-var timeout = Template{
+var Timeout = Template{
 	Code:    CodeTimeout,
 	Message: Message(`Timeout`),
 	Params:  Params{},
@@ -108,11 +80,7 @@ var timeout = Template{
 
 const CodeAlreadyExists Code = "AlreadyExists"
 
-func AlreadyExists(params ...Param) error {
-	return New(alreadyExists, params...)
-}
-
-var alreadyExists = Template{
+var AlreadyExists = Template{
 	Code: CodeAlreadyExists,
 	Message: func(params map[string]any) string {
 		resource, found := params[keyResource]
@@ -126,11 +94,7 @@ var alreadyExists = Template{
 
 const CodeAlreadyInProgress Code = "AlreadyInProgress"
 
-func AlreadyInProgress(params ...Param) error {
-	return New(alreadyInProgress, params...)
-}
-
-var alreadyInProgress = Template{
+var AlreadyInProgress = Template{
 	Code: CodeAlreadyInProgress,
 	Message: func(params map[string]any) string {
 		return "Already in progress"
@@ -140,11 +104,7 @@ var alreadyInProgress = Template{
 
 const CodeIllegalState Code = "IllegalState"
 
-func IllegalState(params ...Param) error {
-	return New(illegalState, params...)
-}
-
-var illegalState = Template{
+var IllegalState = Template{
 	Code: CodeIllegalState,
 	Message: func(params map[string]any) string {
 		reason, found := params[keyReason]
@@ -158,11 +118,7 @@ var illegalState = Template{
 
 const CodePreconditionFailed Code = "PreconditionFailed"
 
-func PreconditionFailed(params ...Param) error {
-	return New(preconditionFailed, params...)
-}
-
-var preconditionFailed = Template{
+var PreconditionFailed = Template{
 	Code: CodePreconditionFailed,
 	Message: func(params map[string]any) string {
 		precondition, found := params[keyPrecondition]
@@ -176,11 +132,7 @@ var preconditionFailed = Template{
 
 const CodePreconditionRequired Code = "PreconditionRequired"
 
-func PreconditionRequired(params ...Param) error {
-	return New(preconditionRequired, params...)
-}
-
-var preconditionRequired = Template{
+var PreconditionRequired = Template{
 	Code: CodePreconditionFailed,
 	Message: func(params map[string]any) string {
 		precondition, found := params[keyPrecondition]
@@ -194,22 +146,14 @@ var preconditionRequired = Template{
 
 const CodeToManyRequests Code = "ToManyRequests"
 
-func ToManyRequests(params ...Param) error {
-	return New(toManyRequests, params...)
-}
-
-var toManyRequests = Template{
+var ToManyRequests = Template{
 	Code:    CodeToManyRequests,
 	Message: Message("To many request, please reduce your requests rate"),
 }
 
 const CodeInternalError Code = "InternalError"
 
-func InternalError(err error) error {
-	return Wrap(err, internalError)
-}
-
-var internalError = Template{
+var InternalError = Template{
 	Code: CodeInternalError,
 	Message: func(params map[string]any) string {
 		return "Internal error"
@@ -219,11 +163,7 @@ var internalError = Template{
 
 const CodeNotImplemented Code = "NotImplemented"
 
-func NotImplemented(params ...Param) error {
-	return New(notImplemented, params...)
-}
-
-var notImplemented = Template{
+var NotImplemented = Template{
 	Code: CodeNotImplemented,
 	Message: func(params map[string]any) string {
 		return "Not implemented"
