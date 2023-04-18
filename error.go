@@ -34,6 +34,16 @@ func Wrap(err error, template Template, params ...Param) error {
 	return newError(template, append(params, WithCause(err)))
 }
 
+func Is(err error) bool {
+	_, ok := err.(Error)
+	return ok
+}
+
+func Cast(err error) Error {
+	e, _ := err.(Error)
+	return e
+}
+
 func newError(template Template, params Params) Error {
 	var stackTrace StackTrace
 	if cfg.CollectStackTrace {

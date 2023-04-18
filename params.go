@@ -60,7 +60,7 @@ func GetResource(e Error) (string, bool) {
 	return resource, ok
 }
 
-const keyReason = "reason"
+const keyReason = "Reason"
 
 func WithReason(reason string) Param {
 	return Param{keyReason, reason}
