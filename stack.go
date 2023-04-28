@@ -2,6 +2,8 @@ package errors
 
 import (
 	"runtime"
+	"strconv"
+	"strings"
 )
 
 const maxDepth = 32
@@ -17,6 +19,21 @@ func trace(skip int) StackTrace {
 }
 
 type StackTrace []Frame
+
+func (s StackTrace) String() string {
+	sb := strings.Builder{}
+	for index, frame := range s {
+		if index != 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString(frame.Func())
+		sb.WriteString("\n\t")
+		sb.WriteString(frame.File())
+		sb.WriteString(":")
+		sb.WriteString(strconv.Itoa(frame.Line()))
+	}
+	return sb.String()
+}
 
 type Frame uintptr
 

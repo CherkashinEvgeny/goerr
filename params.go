@@ -15,21 +15,6 @@ type Param struct {
 	Value any
 }
 
-const keyCause = "cause"
-
-func WithCause(err error) Param {
-	return Param{keyCause, err}
-}
-
-func GetCause(e Error) (error, bool) {
-	val := e.Get(keyCause)
-	if val == nil {
-		return nil, false
-	}
-	err, ok := e.Get(keyCause).(error)
-	return err, ok
-}
-
 const keyId = "Id"
 
 func WithId(id string) Param {
