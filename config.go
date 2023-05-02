@@ -15,12 +15,12 @@ type Config struct {
 	IsPrivateParam func(name string) bool
 
 	MarshalJsonKey     func(name string) string
-	MarshalJsonParam   map[string]func(v any) ([]byte, error)
+	MarshalJsonParam   map[string]func(value any) ([]byte, error)
 	UnmarshalJsonKey   func(name string) string
 	UnmarshalJsonParam map[string]func(data []byte) (any, error)
 
 	MarshalXMLKey     func(name string) string
-	MarshalXmlParam   map[string]func(en *xml.Encoder, start xml.StartElement, v any) error
+	MarshalXmlParam   map[string]func(en *xml.Encoder, start xml.StartElement, value any) error
 	UnmarshalXMLKey   func(name string) string
 	UnmarshalXmlParam map[string]func(d *xml.Decoder, start xml.StartElement) (any, error)
 
@@ -184,6 +184,6 @@ var cfg = Config{
 	MarshalStackTrace: false,
 }
 
-func Configure(f func(Config) Config) {
-	cfg = f(cfg)
+func Configure(f func(*Config)) {
+	f(&cfg)
 }

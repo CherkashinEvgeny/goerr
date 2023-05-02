@@ -1,6 +1,8 @@
 package http
 
 import (
+	"encoding/json"
+	"encoding/xml"
 	errors "github.com/CherkashinEvgeny/goerr"
 	"net/http"
 )
@@ -63,4 +65,31 @@ func GetStatus(e errors.Error) (int, bool) {
 	}
 	status, ok := val.(int)
 	return status, ok
+}
+
+func init() {
+	errors.Configure(func(config *errors.Config) {
+		config.MarshalJsonParam[keyStatus] = func(value any) ([]byte, error) {
+			return json.Marshal(value)
+		}
+		config.UnmarshalJsonParam[keyStatus] = func(data []byte) (any, error) {
+			var status int
+			err := json.Unmarshal(data, &status)
+			if err != nil {
+				return nil, err
+			}
+			return status, nil
+		}
+		config.MarshalXmlParam[keyStatus] = func(en *xml.Encoder, start xml.StartElement, value any) error {
+			return en.EncodeElement(value, start)
+		}
+		config.UnmarshalXmlParam[keyStatus] = func(d *xml.Decoder, start xml.StartElement) (any, error) {
+			var status int
+			err := d.DecodeElement(&status, &start)
+			if err != nil {
+				return nil, err
+			}
+			return status, nil
+		}
+	})
 }
