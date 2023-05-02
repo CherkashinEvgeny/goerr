@@ -5,7 +5,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"reflect"
 	"unicode"
 	"unicode/utf8"
 )
@@ -15,19 +14,15 @@ type Config struct {
 
 	IsPrivateParam func(name string) bool
 
-	ParamNameToJsonKey   func(name string) string
-	MarshalJsonParam     map[string]func(v any) ([]byte, error)
-	MarshalJson          func(v any) ([]byte, error)
-	ParamNameFromJsonKey func(name string) string
-	UnmarshalJsonParam   map[string]func(data []byte, v any) error
-	UnmarshalJson        func(data []byte, v any) error
+	MarshalJsonKey     func(name string) string
+	MarshalJsonParam   map[string]func(v any) ([]byte, error)
+	UnmarshalJsonKey   func(name string) string
+	UnmarshalJsonParam map[string]func(data []byte) (any, error)
 
-	ParamNameToXMLKey   func(name string) string
-	MarshalXmlParam     map[string]func(en *xml.Encoder, start xml.StartElement, v any) error
-	MarshalXml          func(en *xml.Encoder, start xml.StartElement, v any) error
-	ParamNameFromXMLKey func(name string) string
-	UnmarshalXmlParam   map[string]func(d *xml.Decoder, start xml.StartElement, v any) error
-	UnmarshalXml        func(d *xml.Decoder, start xml.StartElement, v any) error
+	MarshalXMLKey     func(name string) string
+	MarshalXmlParam   map[string]func(en *xml.Encoder, start xml.StartElement, v any) error
+	UnmarshalXMLKey   func(name string) string
+	UnmarshalXmlParam map[string]func(d *xml.Decoder, start xml.StartElement) (any, error)
 
 	MarshalCause      bool
 	MarshalStackTrace bool
@@ -41,7 +36,7 @@ var cfg = Config{
 		return unicode.IsLower(r)
 	},
 
-	ParamNameToJsonKey: func(name string) string {
+	MarshalJsonKey: func(name string) string {
 		r, n := utf8.DecodeRuneInString(name)
 		if unicode.IsLower(r) {
 			return name
@@ -78,41 +73,46 @@ var cfg = Config{
 			return json.Marshal(strs)
 		},
 	},
-	MarshalJson: json.Marshal,
-	ParamNameFromJsonKey: func(name string) string {
+	UnmarshalJsonKey: func(name string) string {
 		r, n := utf8.DecodeRuneInString(name)
 		if unicode.IsUpper(r) {
 			return name
 		}
 		return string(unicode.ToUpper(r)) + name[n:]
 	},
-	UnmarshalJsonParam: map[string]func(data []byte, v any) error{
-		keyCode: func(data []byte, v any) error {
-			return json.Unmarshal(data, &v)
+	UnmarshalJsonParam: map[string]func(data []byte) (any, error){
+		keyCode: func(data []byte) (any, error) {
+			var code Code
+			err := json.Unmarshal(data, &code)
+			if err != nil {
+				return nil, err
+			}
+			return code, nil
 		},
-		keyMessage: func(data []byte, v any) error {
-			return json.Unmarshal(data, &v)
+		keyMessage: func(data []byte) (any, error) {
+			var message string
+			err := json.Unmarshal(data, &message)
+			if err != nil {
+				return nil, err
+			}
+			return message, nil
 		},
-		keyCause: func(data []byte, v any) error {
+		keyCause: func(data []byte) (any, error) {
 			var e Error
 			err := json.Unmarshal(data, &e)
 			if err == nil {
-				reflect.ValueOf(v).Elem().Set(reflect.ValueOf(e))
-				return nil
+				return e, nil
 			}
 			var str string
 			err = json.Unmarshal(data, &str)
-			if err != nil {
-				reflect.ValueOf(v).Elem().Set(reflect.ValueOf(errors.New(str)))
-				return nil
+			if err == nil {
+				return errors.New(str), nil
 			}
-			reflect.ValueOf(v).Elem().Set(reflect.ValueOf(errors.New(string(data))))
-			return nil
+			return errors.New(string(data)), nil
 		},
 	},
-	UnmarshalJson: json.Unmarshal,
 
-	ParamNameToXMLKey: func(name string) string {
+	MarshalXMLKey: func(name string) string {
 		r, n := utf8.DecodeRuneInString(name)
 		if unicode.IsUpper(r) {
 			return name
@@ -145,37 +145,39 @@ var cfg = Config{
 			return en.EncodeElement(v, start)
 		},
 	},
-	MarshalXml: func(en *xml.Encoder, start xml.StartElement, v any) error {
-		return en.EncodeElement(v, start)
-	},
-	ParamNameFromXMLKey: func(name string) string {
+	UnmarshalXMLKey: func(name string) string {
 		return name
 	},
-	UnmarshalXmlParam: map[string]func(d *xml.Decoder, start xml.StartElement, v any) error{
-		keyCode: func(d *xml.Decoder, start xml.StartElement, v any) error {
-			return d.DecodeElement(v, &start)
+	UnmarshalXmlParam: map[string]func(d *xml.Decoder, start xml.StartElement) (any, error){
+		keyCode: func(d *xml.Decoder, start xml.StartElement) (any, error) {
+			var code Code
+			err := d.DecodeElement(&code, &start)
+			if err != nil {
+				return nil, err
+			}
+			return code, nil
 		},
-		keyMessage: func(d *xml.Decoder, start xml.StartElement, v any) error {
-			return d.DecodeElement(v, &start)
+		keyMessage: func(d *xml.Decoder, start xml.StartElement) (any, error) {
+			var message string
+			err := d.DecodeElement(&message, &start)
+			if err != nil {
+				return nil, err
+			}
+			return message, nil
 		},
-		keyCause: func(d *xml.Decoder, start xml.StartElement, v any) error {
+		keyCause: func(d *xml.Decoder, start xml.StartElement) (any, error) {
 			var e Error
 			err := d.DecodeElement(&e, &start)
 			if err == nil {
-				reflect.ValueOf(v).Elem().Set(reflect.ValueOf(e))
-				return nil
+				return e, nil
 			}
 			var str string
 			err = d.DecodeElement(&str, &start)
 			if err != nil {
-				reflect.ValueOf(v).Elem().Set(reflect.ValueOf(errors.New(str)))
-				return nil
+				return errors.New(str), nil
 			}
-			return nil
+			return nil, errors.New(fmt.Sprintf("unprocessable error type %s", start.Name.Local))
 		},
-	},
-	UnmarshalXml: func(d *xml.Decoder, start xml.StartElement, v any) error {
-		return d.DecodeElement(v, &start)
 	},
 
 	MarshalCause:      false,

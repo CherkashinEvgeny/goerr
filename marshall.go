@@ -3,7 +3,6 @@ package errors
 import (
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"fmt"
 )
 
@@ -20,27 +19,27 @@ func (e Error) MarshalJSON() ([]byte, error) {
 		if cfg.IsPrivateParam(key) {
 			continue
 		}
-		data[cfg.ParamNameToJsonKey(key)], err = marshalJson(key, value)
+		data[cfg.MarshalJsonKey(key)], err = marshalJson(key, value)
 		if err != nil {
 			return nil, err
 		}
 	}
-	data[cfg.ParamNameToJsonKey(keyCode)], err = marshalJson(keyCode, e.code)
+	data[cfg.MarshalJsonKey(keyCode)], err = marshalJson(keyCode, e.code)
 	if err != nil {
 		return nil, keyMarshalError{keyCode, err}
 	}
-	data[cfg.ParamNameToJsonKey(keyMessage)], err = marshalJson(keyMessage, e.message)
+	data[cfg.MarshalJsonKey(keyMessage)], err = marshalJson(keyMessage, e.message)
 	if err != nil {
 		return nil, keyMarshalError{keyMessage, err}
 	}
 	if cfg.MarshalCause && e.cause != nil {
-		data[cfg.ParamNameToJsonKey(keyCause)], err = marshalJson(keyCause, e.cause)
+		data[cfg.MarshalJsonKey(keyCause)], err = marshalJson(keyCause, e.cause)
 		if err != nil {
 			return nil, keyMarshalError{keyCause, err}
 		}
 	}
 	if cfg.MarshalStackTrace && e.stackTrace != nil {
-		data[cfg.ParamNameToJsonKey(keyStackTrace)], err = marshalJson(keyStackTrace, e.stackTrace)
+		data[cfg.MarshalJsonKey(keyStackTrace)], err = marshalJson(keyStackTrace, e.stackTrace)
 		if err != nil {
 			return nil, keyMarshalError{keyStackTrace, err}
 		}
@@ -50,10 +49,10 @@ func (e Error) MarshalJSON() ([]byte, error) {
 
 func marshalJson(key string, value any) ([]byte, error) {
 	marshaller, found := cfg.MarshalJsonParam[key]
-	if !found {
-		marshaller = cfg.MarshalJson
+	if found {
+		return marshaller(value)
 	}
-	jsonValue, err := marshaller(value)
+	jsonValue, err := json.Marshal(value)
 	if err != nil {
 		return nil, err
 	}
@@ -68,46 +67,55 @@ func (e *Error) UnmarshalJSON(bytes []byte) error {
 	if err != nil {
 		return err
 	}
-	codeJson, ok := data[cfg.ParamNameToJsonKey(keyCode)]
+	codeJson, ok := data[cfg.MarshalJsonKey(keyCode)]
 	delete(data, keyCode)
 	if !ok {
-		return codeIsMissingError
+		return keyMissingError{keyCode}
 	}
-	var code Code
-	err = unmarshalJson(keyCode, codeJson, &code)
+	codeValue, err := unmarshalJson(keyCode, codeJson)
 	if err != nil {
 		return keyUnmarshalError{keyCode, err}
 	}
-	messageJson, ok := data[cfg.ParamNameToJsonKey(keyMessage)]
+	code, ok := codeValue.(Code)
+	if !ok {
+		return keyCastError{keyCode}
+	}
+	messageJson, ok := data[cfg.MarshalJsonKey(keyMessage)]
 	delete(data, keyMessage)
 	if !ok {
-		return messageIsMissingError
+		return keyMissingError{keyMessage}
 	}
-	var message string
-	err = unmarshalJson(keyMessage, messageJson, message)
+	messageValue, err := unmarshalJson(keyMessage, messageJson)
 	if err != nil {
 		return keyUnmarshalError{keyMessage, err}
 	}
-	causeJson, ok := data[cfg.ParamNameToJsonKey(keyCause)]
-	delete(data, keyCause)
+	message, ok := messageValue.(string)
+	if !ok {
+		return keyCastError{keyMessage}
+	}
+	causeJson, ok := data[cfg.MarshalJsonKey(keyCause)]
 	var cause error
 	if ok {
-		err = unmarshalJson(keyCause, causeJson, &cause)
+		delete(data, keyCause)
+		causeValue, err := unmarshalJson(keyCause, causeJson)
 		if err != nil {
 			return keyUnmarshalError{keyCause, err}
 		}
+		cause, ok = causeValue.(error)
+		if !ok {
+			return keyCastError{keyCause}
+		}
 	}
-	delete(data, cfg.ParamNameToJsonKey(keyStackTrace))
+	delete(data, cfg.MarshalJsonKey(keyStackTrace))
 
 	paramsMap := make(map[string]any, len(data))
-	for jkey, jvalue := range data {
-		key := cfg.ParamNameFromJsonKey(jkey)
-		var value any
-		err = unmarshalJson(key, jvalue, &value)
+	for jsonKey, jsonValue := range data {
+		key := cfg.UnmarshalJsonKey(jsonKey)
+		value, err := unmarshalJson(key, jsonValue)
 		if err != nil {
 			return keyUnmarshalError{key, err}
 		}
-		paramsMap[key] = jvalue
+		paramsMap[key] = value
 	}
 
 	var stackTrace StackTrace
@@ -125,12 +133,17 @@ func (e *Error) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
-func unmarshalJson(key string, data []byte, v any) error {
+func unmarshalJson(key string, data []byte) (any, error) {
 	unmarshller, found := cfg.UnmarshalJsonParam[key]
-	if !found {
-		unmarshller = cfg.UnmarshalJson
+	if found {
+		return unmarshller(data)
 	}
-	return unmarshller(data, v)
+	var value any
+	err := json.Unmarshal(data, &value)
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
 }
 
 var _ xml.Marshaler = (*Error)(nil)
@@ -170,21 +183,23 @@ func (e Error) MarshalXML(en *xml.Encoder, start xml.StartElement) error {
 	return en.EncodeToken(start.End())
 }
 
-func marshalXml(key string, en *xml.Encoder, v any) error {
+func marshalXml(key string, en *xml.Encoder, value any) error {
 	marshaller, found := cfg.MarshalXmlParam[key]
-	if !found {
-		marshaller = cfg.MarshalXml
+	if found {
+		return marshaller(en, xml.StartElement{Name: xml.Name{Local: cfg.MarshalXMLKey(key)}}, value)
 	}
-	return marshaller(en, xml.StartElement{Name: xml.Name{Local: cfg.ParamNameToXMLKey(key)}}, v)
+	return en.EncodeElement(value, xml.StartElement{Name: xml.Name{Local: cfg.MarshalXMLKey(key)}})
 }
 
 var _ xml.Unmarshaler = (*Error)(nil)
 
 func (e *Error) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 	var code Code
+	var codeFound bool
 	var message string
+	var messageFound bool
 	var cause error
-	var paramsMap map[string]any
+	var paramsMap = map[string]any{}
 	for {
 		token, _ := d.Token()
 		if token == nil {
@@ -194,33 +209,52 @@ func (e *Error) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 		if !ok {
 			continue
 		}
-		key := cfg.ParamNameFromXMLKey(el.Name.Local)
+		key := cfg.UnmarshalXMLKey(el.Name.Local)
 		switch key {
 		case keyCode:
-			err := unmarshalXml(keyCode, d, el, &code)
+			codeFound = true
+			codeValue, err := unmarshalXml(keyCode, d, el)
 			if err != nil {
 				return keyUnmarshalError{keyCode, err}
 			}
+			code, ok = codeValue.(Code)
+			if !ok {
+				return keyCastError{keyCode}
+			}
 		case keyMessage:
-			err := unmarshalXml(keyMessage, d, el, &message)
+			messageFound = true
+			messageValue, err := unmarshalXml(keyMessage, d, el)
 			if err != nil {
 				return keyUnmarshalError{keyMessage, err}
 			}
+			message, ok = messageValue.(string)
+			if !ok {
+				return keyCastError{keyMessage}
+			}
 		case keyCause:
-			err := unmarshalXml(keyCause, d, el, &cause)
+			causeValue, err := unmarshalXml(keyCause, d, el)
 			if err != nil {
 				return keyUnmarshalError{keyCause, err}
+			}
+			cause, ok = causeValue.(error)
+			if !ok {
+				return keyCastError{keyCause}
 			}
 		case keyStackTrace:
 			break
 		default:
-			var value any
-			err := unmarshalXml(key, d, el, &value)
+			value, err := unmarshalXml(key, d, el)
 			if err != nil {
 				return keyUnmarshalError{key, err}
 			}
 			paramsMap[key] = value
 		}
+	}
+	if !codeFound {
+		return keyMissingError{keyCode}
+	}
+	if !messageFound {
+		return keyMissingError{keyMessage}
 	}
 
 	var stackTrace StackTrace
@@ -238,17 +272,18 @@ func (e *Error) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 	return nil
 }
 
-func unmarshalXml(key string, d *xml.Decoder, start xml.StartElement, v any) error {
+func unmarshalXml(key string, d *xml.Decoder, start xml.StartElement) (any, error) {
 	unmarshaller, found := cfg.UnmarshalXmlParam[key]
-	if !found {
-		unmarshaller = cfg.UnmarshalXml
+	if found {
+		return unmarshaller(d, start)
 	}
-	return unmarshaller(d, start, v)
+	var value string
+	err := d.DecodeElement(&value, &start)
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
 }
-
-var codeIsMissingError = errors.New("code is missing")
-
-var messageIsMissingError = errors.New("message is missing")
 
 type keyMarshalError struct {
 	key string
@@ -282,4 +317,20 @@ func (e keyUnmarshalError) Unwrap() error {
 
 func (e keyUnmarshalError) Cause() error {
 	return e.err
+}
+
+type keyMissingError struct {
+	key string
+}
+
+func (e keyMissingError) Error() string {
+	return fmt.Sprintf("missing %s", e.key)
+}
+
+type keyCastError struct {
+	key string
+}
+
+func (e keyCastError) Error() string {
+	return fmt.Sprintf("cast %s unmarshaled value", e.key)
 }
