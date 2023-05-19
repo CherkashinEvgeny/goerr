@@ -144,6 +144,27 @@ var cfg = Config{
 			}
 			return en.EncodeElement(v, start)
 		},
+		keyValidationErrors: func(en *xml.Encoder, start xml.StartElement, v any) error {
+			errs, ok := v.(map[string]string)
+			if !ok {
+				return en.EncodeElement(errs, start)
+			}
+			err := en.EncodeToken(start)
+			if err != nil {
+				return err
+			}
+			for key, value := range errs {
+				err = en.EncodeElement(value, xml.StartElement{Name: xml.Name{Local: key}})
+				if err != nil {
+					return err
+				}
+			}
+			err = en.EncodeToken(start.End())
+			if err != nil {
+				return err
+			}
+			return nil
+		},
 	},
 	UnmarshalXMLKey: func(name string) string {
 		return name
@@ -177,6 +198,27 @@ var cfg = Config{
 				return errors.New(str), nil
 			}
 			return nil, errors.New(fmt.Sprintf("unprocessable error type %s", start.Name.Local))
+		},
+		keyValidationErrors: func(d *xml.Decoder, _ xml.StartElement) (any, error) {
+			errs := map[string]string{}
+			for {
+				token, _ := d.Token()
+				if token == nil {
+					break
+				}
+				start, ok := token.(xml.StartElement)
+				if !ok {
+					continue
+				}
+				key := start.Name.Local
+				var value string
+				err := d.DecodeElement(&value, &start)
+				if err != nil {
+					return nil, err
+				}
+				errs[key] = value
+			}
+			return errs, nil
 		},
 	},
 

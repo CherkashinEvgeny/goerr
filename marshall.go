@@ -205,15 +205,15 @@ func (e *Error) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 		if token == nil {
 			break
 		}
-		el, ok := token.(xml.StartElement)
+		start, ok := token.(xml.StartElement)
 		if !ok {
 			continue
 		}
-		key := cfg.UnmarshalXMLKey(el.Name.Local)
+		key := cfg.UnmarshalXMLKey(start.Name.Local)
 		switch key {
 		case keyCode:
 			codeFound = true
-			codeValue, err := unmarshalXml(keyCode, d, el)
+			codeValue, err := unmarshalXml(keyCode, d, start)
 			if err != nil {
 				return keyUnmarshalError{keyCode, err}
 			}
@@ -223,7 +223,7 @@ func (e *Error) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 			}
 		case keyMessage:
 			messageFound = true
-			messageValue, err := unmarshalXml(keyMessage, d, el)
+			messageValue, err := unmarshalXml(keyMessage, d, start)
 			if err != nil {
 				return keyUnmarshalError{keyMessage, err}
 			}
@@ -232,7 +232,7 @@ func (e *Error) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 				return keyCastError{keyMessage}
 			}
 		case keyCause:
-			causeValue, err := unmarshalXml(keyCause, d, el)
+			causeValue, err := unmarshalXml(keyCause, d, start)
 			if err != nil {
 				return keyUnmarshalError{keyCause, err}
 			}
@@ -243,7 +243,7 @@ func (e *Error) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
 		case keyStackTrace:
 			break
 		default:
-			value, err := unmarshalXml(key, d, el)
+			value, err := unmarshalXml(key, d, start)
 			if err != nil {
 				return keyUnmarshalError{key, err}
 			}
