@@ -51,7 +51,7 @@ var cfg = Config{
 			return json.Marshal(v)
 		},
 		keyCause: func(v any) ([]byte, error) {
-			e, ok := v.(Error)
+			e, ok := v.(*Error)
 			if ok {
 				return json.Marshal(e)
 			}
@@ -98,8 +98,8 @@ var cfg = Config{
 			return message, nil
 		},
 		keyCause: func(data []byte) (any, error) {
-			var e Error
-			err := json.Unmarshal(data, &e)
+			e := &Error{}
+			err := json.Unmarshal(data, e)
 			if err == nil {
 				return e, nil
 			}
@@ -127,7 +127,7 @@ var cfg = Config{
 			return en.EncodeElement(v, start)
 		},
 		keyCause: func(en *xml.Encoder, start xml.StartElement, v any) error {
-			e, ok := v.(Error)
+			e, ok := v.(*Error)
 			if ok {
 				return en.EncodeElement(e, start)
 			}
@@ -187,8 +187,8 @@ var cfg = Config{
 			return message, nil
 		},
 		keyCause: func(d *xml.Decoder, start xml.StartElement) (any, error) {
-			var e Error
-			err := d.DecodeElement(&e, &start)
+			e := &Error{}
+			err := d.DecodeElement(e, &start)
 			if err == nil {
 				return e, nil
 			}

@@ -8,7 +8,7 @@ import (
 
 var _ json.Marshaler = (*Error)(nil)
 
-func (e Error) MarshalJSON() ([]byte, error) {
+func (e *Error) MarshalJSON() ([]byte, error) {
 	fieldsCount := 2 + len(e.paramsMap)
 	if cfg.MarshalStackTrace {
 		fieldsCount++
@@ -148,7 +148,7 @@ func unmarshalJson(key string, data []byte) (any, error) {
 
 var _ xml.Marshaler = (*Error)(nil)
 
-func (e Error) MarshalXML(en *xml.Encoder, start xml.StartElement) error {
+func (e *Error) MarshalXML(en *xml.Encoder, start xml.StartElement) error {
 	err := en.EncodeToken(start)
 	if err != nil {
 		return err
